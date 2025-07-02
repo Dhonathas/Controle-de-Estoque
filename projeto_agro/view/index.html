@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Controle de Estoque Agrícola</title>
+  <link rel="stylesheet" href="/view/CSS/Style.css">
+</head>
+<body>
+  <h1>Estoque Agrícola</h1>
+
+  <form id="itemForm">
+    <input type="text" id="nome" placeholder="Nome do item" required />
+    <input type="number" id="quantidade" placeholder="Quantidade" required min="0" />
+    <input type="text" id="descricao" placeholder="Descrição (opcional)" />
+    <button type="submit">Adicionar</button>
+  </form>
+
+  <ul id="lista-itens"></ul>
+
+  <script>
+    const apiUrl = "http://localhost:5000/itens";
+    let editandoId = null;
+
+    async function carregarItens() {
+      const res = await fetch(apiUrl);
+      const dados = await res.json();
+      const lista = document.getElementById('lista-itens');
+      lista.innerHTML = '';
+      dados.forEach(item => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <div class="detalhes">
+            <strong>${item.nome}</strong> - ${item.quantidade}
+            <em>${item.descricao || ''}</em>
+          </div>
+          <div class="botoes">
+            <button class="editar" onclick="editar(${item.id}, '${item.nome.replace(/'/g, "\\'")}', ${item.quantidade}, '${item.descricao ? item.descricao.replace(/'/g, "\\'") : ''}')">Editar</button>
+            <button class="remover" onclick="remover(${item.id})">Remover</button>
+          </div>
+        `;
+        lista.appendChild(li);
+      });
+    }
+
+    function editar(id, nome, quantidade, descricao = '') {
+      editandoId = id;
+      document.getElementById('nome').value = nome;
+      document.getElementById('quantidade').value = quantidade;
+      document.getElementById('descricao').value = descricao;
+      document.querySelector('#itemForm button').textContent = 'Salvar';
+    }
+
+    async function adicionarItem(event) {
+      event.preventDefault();
+      const nome = document.getElementById('nome').value.trim();
+      const quantidade = parseInt(document.getElementById('quantidade').value);
+      const descricao = document.getElementById('descricao').value.trim();
+
+      if (!nome || isNaN(quantidade) || quantidade < 0) {
+        alert('Por favor, preencha os campos corretamente.');
+        return;
+      }
+
+      const dados = { nome, quantidade, descricao };
+
+      if (editandoId) {
+        await fetch(`${apiUrl}/${editandoId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dados)
+        });
+        editandoId = null;
+        document.querySelector('#itemForm button').textContent = 'Adicionar';
+      } else {
+        await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dados)
+        });
+      }
+
+      document.getElementById('itemForm').reset();
+      carregarItens();
+    }
+
+    async function remover(id) {
+      if (confirm('Deseja realmente remover este item?')) {
+        await fetch(`${apiUrl}/${id}`, { method: 'DELETE' });
+        carregarItens();
+      }
+    }
+
+    document.getElementById('itemForm').addEventListener('submit', adicionarItem);
+    carregarItens();
+  </script>
+</body>
+</html>
